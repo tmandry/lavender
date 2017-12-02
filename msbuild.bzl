@@ -143,15 +143,58 @@ def _generate_msbuild_file(target, ctx):
   if path: path = path + '/'
 
   # Assume the user is opening the project from bazel-bin.
+  binPath = '../' * path.count('/')
   wsPath = '../' * (path.count('/') + 1)
 
-  info = struct(target=target, ctx=ctx, path=path, wsPath=wsPath)
+  info = struct(target=target, ctx=ctx, path=path, wsPath=wsPath, binPath=binPath)
 
   project = ctx.actions.declare_file(target.label.name + '.vcxproj')
-  content = _msb_project(_msb_props(info), _msb_files(info), _msb_targets(info))
+  content = _msb_project(info, _msb_props(info), _msb_files(info), _msb_targets(info))
   ctx.actions.write(project, content, is_executable=False)
   print(dir(ctx.configuration.bin_dir))
   return project
+
+def _sln_solution(info):
+  return '''
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2002
+MinimumVisualStudioVersion = 10.0.40219.1
+#Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "stage3_wizard_inplace", "stage3_wizard_inplace.vcxproj", "{5C6C586A-D090-4E78-9D16-BC69939BBEA0}"
+#EndProject
+''' + _sln_projects(info) + '''
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Debug|x64.ActiveCfg = Debug|x64
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Debug|x64.Build.0 = Debug|x64
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Debug|x86.ActiveCfg = Debug|Win32
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Debug|x86.Build.0 = Debug|Win32
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Release|x64.ActiveCfg = Release|x64
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Release|x64.Build.0 = Release|x64
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Release|x86.ActiveCfg = Release|Win32
+		{5C6C586A-D090-4E78-9D16-BC69939BBEA0}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		#SolutionGuid = {E53EC800-4964-4FE0-B76A-EC14DF2A16BA}
+	EndGlobalSection
+EndGlobal'''
+
+def _sln_projects(info):
+  # This first UUID appears to be an identifier for Visual C++ packages?
+  return '\n'.join([
+      '''Project("{{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}}") = "{name}", "{binPath}/{package}/{name}.vcxproj", "{{}}"\nEndProject'''
+      .format(name=dep.label.name, binPath=info.binPath, package=dep.label.package)
+      for dep in info.deps
+  ])
 
 def _msbuild_aspect_impl(target, ctx):
   outputs = depset([_generate_msbuild_file(target, ctx)])
