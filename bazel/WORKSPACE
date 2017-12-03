@@ -1,0 +1,2 @@
+# Defnes a workspace to allow injection of our Bazel aspects.
+workspace(name = "bazel-msbuild")
