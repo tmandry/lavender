@@ -2,6 +2,7 @@
 
 from __future__ import division, print_function, unicode_literals
 import argparse
+import errno
 import re
 import sys
 import os
@@ -41,39 +42,52 @@ class ProjectInfo:
         self.target = Struct()
         self.target.label = info_dict['target']['label']
         self.target.files = info_dict['target']['files']
-        self.guid = 'TODO-GUID'
+        self.guid = 'TODO-GUID'  # TODO
 
-def bin_path():
-    return 'bazel-bin'
+class Configuration:
+    def __init__(self, args):
+        self.workspace_root = os.path.abspath('.')  # TODO
+        self.output_path    = os.path.abspath(args.output)
+
+    @property
+    def bin_path(self):
+        """Path to the bazel-bin directory of the current workspace."""
+        return os.path.join(self.workspace_root, 'bazel-bin')
+
+    def output_path_for_package(self, package):
+        """Path to the output directory for files generated for the given package."""
+        return os.path.join(self.output_path, package)
 
 def run_aspect(target):
     """Invokes bazel on our aspect to generate target info."""
     pass
 
-def read_info(target):
+def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
-    info_dict = json.load(open(os.path.join(bin_path(), target.info_path)))
+    info_dict = json.load(open(os.path.join(cfg.bin_path, target.info_path)))
     return ProjectInfo(target, info_dict)
 
-def _msb_cc_src(info, filename):
-    return '<ClCompile Include="{wspath}{name}" />'.format(wspath=info.ws_path, name=filename)
+def _msb_cc_src(rel_ws_root, info, filename):
+    return '<ClCompile Include="{}" />'.format(os.path.join(rel_ws_root, filename))
 
-def _msb_cc_inc(info, filename):
-    return '<ClInclude Include="{wspath}{name}" />'.format(wspath=info.ws_path, name=filename)
+def _msb_cc_inc(rel_ws_root, info, filename):
+    return '<ClInclude Include="{}" />'.format(os.path.join(rel_ws_root, filename))
 
-def _msb_item_group(info, file_targets, func):
+def _msb_item_group(rel_ws_root, info, file_targets, func):
     if not file_targets:
         return ''
     return (
         '\n  <ItemGroup>' +
-        '\n    '.join([''] + [func(info, f) for f in file_targets]) +
+        '\n    '.join([''] + [func(rel_ws_root, info, f) for f in file_targets]) +
         '\n  </ItemGroup>'
     )
 
-def _msb_files(info):
+def _msb_files(cfg, info):
+    output_dir = cfg.output_path_for_package(info.label.package)
+    rel_ws_root = os.path.relpath(cfg.workspace_root, output_dir)
     return (
-        _msb_item_group(info, info.srcs, _msb_cc_src) +
-        _msb_item_group(info, info.hdrs, _msb_cc_inc))
+        _msb_item_group(rel_ws_root, info, info.srcs, _msb_cc_src) +
+        _msb_item_group(rel_ws_root, info, info.hdrs, _msb_cc_inc))
 
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
@@ -95,29 +109,45 @@ def _generate_uuid_from_data(data):
     part2 = hsh % (2**32)
     return '{{{:08X}-0000-3000-A000-0000{:08X}}}'.format(part1, part2)
 
+def _makedirs(path):
+    """Ensures that the directories in path exist. Does nothing if they do."""
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 def main(argv):
     """Main function."""
     parser = argparse.ArgumentParser(
         description="Generates Visual Studio project files from Bazel projects.")
     parser.add_argument("target", help="Target to generate project for")
+    parser.add_argument("--output", "-o", type=str, help="Output directory", default='.')
     args = parser.parse_args(argv[1:])
 
-    info = read_info(Label(args.target))
+    cfg = Configuration(args)
+
+    info = read_info(cfg, Label(args.target))
     with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
         template = f.read()
-    content = template.format(
-        info=info,
-        label=str(info.target.label),
-        outputs=';'.join([os.path.basename(f) for f in info.target.files]),
-        file_groups=_msb_files(info))
-    print(content)
-
-    print()
+    proj_path = os.path.join(cfg.output_path, info.label.package)
+    _makedirs(proj_path)
+    with open(os.path.join(proj_path, info.label.name+'.vcxproj'), 'w') as out:
+        content = template.format(
+            info=info,
+            label=str(info.target.label),
+            outputs=';'.join([os.path.basename(f) for f in info.target.files]),
+            file_groups=_msb_files(cfg, info))
+        out.write(content)
 
     with open(os.path.join(SCRIPT_DIR, 'templates', 'solution.sln')) as f:
         template = f.read()
-    content = template.format(projects=_sln_projects([info]))
-    print(content)
+    sln_filename = os.path.join(cfg.output_path, info.label.package, info.label.name+'.sln')
+    with open(sln_filename, 'w') as out:
+        content = template.format(projects=_sln_projects([info]))
+        out.write(content)
 
 if __name__ == '__main__':
     main(sys.argv)
