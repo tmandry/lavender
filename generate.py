@@ -10,8 +10,10 @@ import json
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Label:
+    PATTERN = re.compile(r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
+
     def __init__(self, name):
-        match = re.match(r'((@[\w_-]+)?//)?([\w/_-]*)(:([\w_-]+))?$', name)
+        match = re.match(Label.PATTERN, name)
         if not match:
             raise ValueError("Invalid label: " + name)
         self.repo = match[2] or None
