@@ -12,6 +12,8 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BAZEL = 'bazel'
 
+PROJECT_TYPE_GUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
+
 class Label:
     PATTERN = re.compile(r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
 
@@ -118,12 +120,27 @@ def _msb_files(cfg, info):
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
     return (
-        'Project("{guid2}") = "{name}", "{package}/{name}.vcxproj", "{guid}"\nEndProject'
-        .format(guid=project.guid, guid2=_generate_uuid_from_data(project.guid),
+        'Project("{type_guid}") = "{name}", "{package}/{name}.vcxproj", "{guid}"\nEndProject'
+        .format(guid=project.guid, type_guid=PROJECT_TYPE_GUID,
                 name=project.label.name, package=project.label.package))
 
 def _sln_projects(projects):
     return '\n'.join([_sln_project(project) for project in projects])
+
+def _sln_project_cfgs(projects):
+    lines = []
+    for project in projects:
+        lines.extend(s.format(guid=project.guid) for s in [
+            '{guid}.Debug|x64.ActiveCfg = Debug|x64',
+            '{guid}.Debug|x64.Build.0 = Debug|x64',
+            '{guid}.Debug|x86.ActiveCfg = Debug|Win32',
+            '{guid}.Debug|x86.Build.0 = Debug|Win32',
+            '{guid}.Release|x64.ActiveCfg = Release|x64',
+            '{guid}.Release|x64.Build.0 = Release|x64',
+            '{guid}.Release|x86.ActiveCfg = Release|Win32',
+            '{guid}.Release|x86.Build.0 = Release|Win32',
+        ])
+    return '\n\t\t'.join(lines)
 
 def _generate_uuid_from_data(data):
     # We don't comply with any UUID standard, but we use 3 to advertise that it is a deterministic
@@ -181,6 +198,7 @@ def main(argv):
     with open(sln_filename, 'w') as out:
         content = template.format(
             projects=_sln_projects(project_infos),
+            project_cfgs=_sln_project_cfgs(project_infos),
             guid=_generate_uuid_from_data(sln_filename))
         out.write(content)
 
