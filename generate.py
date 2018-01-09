@@ -170,7 +170,9 @@ def main(argv):
         template = f.read()
     sln_filename = os.path.join(cfg.output_path, cfg.solution_name+'.sln')
     with open(sln_filename, 'w') as out:
-        content = template.format(projects=_sln_projects(project_infos))
+        content = template.format(
+            projects=_sln_projects(project_infos),
+            guid=_generate_uuid_from_data(sln_filename))
         out.write(content)
 
 if __name__ == '__main__':

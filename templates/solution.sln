@@ -2,8 +2,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27004.2002
 MinimumVisualStudioVersion = 10.0.40219.1
-#Project("{{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}}") = "stage3_wizard_inplace", "stage3_wizard_inplace.vcxproj", "{{5C6C586A-D090-4E78-9D16-BC69939BBEA0}}"
-#EndProject
 {projects}
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +24,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		#SolutionGuid = {{E53EC800-4964-4FE0-B76A-EC14DF2A16BA}}
+		SolutionGuid = {guid}
 	EndGlobalSection
 EndGlobal
