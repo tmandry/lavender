@@ -51,6 +51,8 @@ class Configuration:
         self.workspace_root = os.path.abspath('.')  # TODO
         self.output_path    = os.path.abspath(args.output)
 
+        self._setup_env()
+
         if args.target:
             self.targets = args.target
         else:
@@ -69,6 +71,13 @@ class Configuration:
     def output_path_for_package(self, package):
         """Path to the output directory for files generated for the given package."""
         return os.path.join(self.output_path, package)
+
+    def _setup_env(self):
+        """Modifies the env vars of the process for bazel to run successfully."""
+        # Tell MSYS2 not to rewrite absolute package paths in command line args.
+        # Don't override a more aggressive setting.
+        if os.environ.get('MSYS2_ARG_CONV_EXCL') != '*':
+            os.environ['MSYS2_ARG_CONV_EXCL'] = '//'
 
 def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""
