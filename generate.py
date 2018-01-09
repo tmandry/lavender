@@ -3,12 +3,14 @@
 from __future__ import division, print_function, unicode_literals
 import argparse
 import errno
-import re
-import sys
-import os
 import json
+import os
+import re
+import subprocess
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BAZEL = 'bazel'
 
 class Label:
     PATTERN = re.compile(r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
@@ -42,12 +44,22 @@ class ProjectInfo:
         self.target = Struct()
         self.target.label = info_dict['target']['label']
         self.target.files = info_dict['target']['files']
-        self.guid = 'TODO-GUID'  # TODO
+        self.guid = _generate_uuid_from_data(str(label))
 
 class Configuration:
     def __init__(self, args):
         self.workspace_root = os.path.abspath('.')  # TODO
         self.output_path    = os.path.abspath(args.output)
+
+        if args.target:
+            self.targets = args.target
+        else:
+            # Query for all labels in the workspace.
+            # For large codebases, this is going to take awhile!
+            target_list = subprocess.check_output([BAZEL, 'query', '//...', '--output=label'])
+            self.targets = [t.decode('utf-8').strip() for t in target_list.split(b'\n') if t]
+
+        self.solution_name = args.solution or os.path.basename(os.getcwd())
 
     @property
     def bin_path(self):
@@ -58,9 +70,14 @@ class Configuration:
         """Path to the output directory for files generated for the given package."""
         return os.path.join(self.output_path, package)
 
-def run_aspect(target):
+def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""
-    pass
+    subprocess.check_call([
+        BAZEL,
+        'build',
+        # TODO: inject aspect into project somehow
+        '--aspects=bazel-msbuild/msbuild.bzl%msbuild_aspect',
+        '--output_groups=msbuild_outputs'] + cfg.targets)
 
 def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
@@ -104,7 +121,7 @@ def _generate_uuid_from_data(data):
     # hash of a name. I don't think Visual Studio will complain about the method used to create our
     # one-way hash.
     # TODO: Actually use more bits.
-    hsh = hash(data)
+    hsh = abs(hash(data))
     part1 = hsh // (2**32)
     part2 = hsh % (2**32)
     return '{{{:08X}-0000-3000-A000-0000{:08X}}}'.format(part1, part2)
@@ -120,33 +137,40 @@ def _makedirs(path):
             raise
 
 def main(argv):
-    """Main function."""
     parser = argparse.ArgumentParser(
         description="Generates Visual Studio project files from Bazel projects.")
-    parser.add_argument("target", help="Target to generate project for")
-    parser.add_argument("--output", "-o", type=str, help="Output directory", default='.')
+    parser.add_argument("target", nargs='*',
+                        help="Target to generate project for [default: all targets]")
+    parser.add_argument("--output", "-o", type=str, default='.',
+                        help="Output directory")
+    parser.add_argument("--solution", "-n", type=str,
+                        help="Solution name [default: current directory name]")
     args = parser.parse_args(argv[1:])
 
     cfg = Configuration(args)
+    run_aspect(cfg)
 
-    info = read_info(cfg, Label(args.target))
-    with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
-        template = f.read()
-    proj_path = os.path.join(cfg.output_path, info.label.package)
-    _makedirs(proj_path)
-    with open(os.path.join(proj_path, info.label.name+'.vcxproj'), 'w') as out:
-        content = template.format(
-            info=info,
-            label=str(info.target.label),
-            outputs=';'.join([os.path.basename(f) for f in info.target.files]),
-            file_groups=_msb_files(cfg, info))
-        out.write(content)
+    project_infos = []
+    for target in cfg.targets:
+        info = read_info(cfg, Label(target))
+        with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
+            template = f.read()
+        proj_path = os.path.join(cfg.output_path, info.label.package)
+        _makedirs(proj_path)
+        with open(os.path.join(proj_path, info.label.name+'.vcxproj'), 'w') as out:
+            content = template.format(
+                info=info,
+                label=str(info.target.label),
+                outputs=';'.join([os.path.basename(f) for f in info.target.files]),
+                file_groups=_msb_files(cfg, info))
+            out.write(content)
+        project_infos.append(info)
 
     with open(os.path.join(SCRIPT_DIR, 'templates', 'solution.sln')) as f:
         template = f.read()
-    sln_filename = os.path.join(cfg.output_path, info.label.package, info.label.name+'.sln')
+    sln_filename = os.path.join(cfg.output_path, cfg.solution_name+'.sln')
     with open(sln_filename, 'w') as out:
-        content = template.format(projects=_sln_projects([info]))
+        content = template.format(projects=_sln_projects(project_infos))
         out.write(content)
 
 if __name__ == '__main__':
