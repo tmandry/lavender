@@ -24,6 +24,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{info.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
+    <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -86,6 +87,11 @@
   <Target Name="Build">
     <Exec Command="bazel build {label}"
           Outputs="{outputs}"
+          WorkingDirectory="{info.ws_path}" />
+  </Target>
+
+  <Target Name="Clean">
+    <Exec Command="bazel clean"
           WorkingDirectory="{info.ws_path}" />
   </Target>
 
