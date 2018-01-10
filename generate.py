@@ -1,6 +1,7 @@
 """Generates Visual Studio project files."""
 
 from __future__ import division, print_function, unicode_literals
+from collections import namedtuple
 import argparse
 import errno
 import json
@@ -34,9 +35,8 @@ class Label:
 
     @property
     def package_path(self):
-        assert self.package.startswith('//')
-        rel_package = self.package[2:]
-        return os.path.normpath(rel_package)
+        assert self._absolute
+        return os.path.normpath(self.package)
 
     @property
     def info_path(self):
@@ -67,6 +67,9 @@ class ProjectInfo:
         else:
             self.output_file = None
 
+BuildConfig = namedtuple('BuildConfig', ['msbuild_name', 'bazel_name'])
+PlatformConfig = namedtuple('PlatformConfig', ['msbuild_name', 'bazel_name'])
+
 class Configuration:
     def __init__(self, args):
         self.workspace_root = os.path.abspath('.')  # TODO
@@ -88,6 +91,15 @@ class Configuration:
             self.targets = [t.decode('utf-8').strip() for t in target_list.split(b'\n') if t]
 
         self.solution_name = args.solution or os.path.basename(os.getcwd())
+
+        self.build_configs = [
+            BuildConfig('Fastbuild', 'fastbuild'),
+            BuildConfig('Debug', 'dbg'),
+            BuildConfig('Release', 'opt'),
+        ]
+        self.platforms = [
+            PlatformConfig('x64', 'x64_windows')
+        ]
 
     @property
     def bin_path(self):
@@ -165,20 +177,55 @@ def _sln_project(project):
 def _sln_projects(projects):
     return '\n'.join([_sln_project(project) for project in projects])
 
-def _sln_project_cfgs(projects):
+def _sln_cfgs(cfg):
     lines = []
-    for project in projects:
-        lines.extend(s.format(guid=project.guid) for s in [
-            '{guid}.Debug|x64.ActiveCfg = Debug|x64',
-            '{guid}.Debug|x64.Build.0 = Debug|x64',
-            '{guid}.Debug|x86.ActiveCfg = Debug|Win32',
-            '{guid}.Debug|x86.Build.0 = Debug|Win32',
-            '{guid}.Release|x64.ActiveCfg = Release|x64',
-            '{guid}.Release|x64.Build.0 = Release|x64',
-            '{guid}.Release|x86.ActiveCfg = Release|Win32',
-            '{guid}.Release|x86.Build.0 = Release|Win32',
-        ])
+    for build_config in cfg.build_configs:
+        for platform in cfg.platforms:
+            lines.append(
+                '{cfg}|{platform} = {cfg}|{platform}'
+                .format(cfg=build_config.msbuild_name, platform=platform.msbuild_name))
     return '\n\t\t'.join(lines)
+
+def _sln_project_cfgs(cfg, projects):
+    lines = []
+    for build_config in cfg.build_configs:
+        for platform in cfg.platforms:
+            for project in projects:
+                fmt = {
+                    'guid': project.guid,
+                    'cfg':  build_config.msbuild_name,
+                    'platform': platform.msbuild_name
+                }
+                lines.extend([
+                    '{guid}.{cfg}|{platform}.ActiveCfg = {cfg}|{platform}'.format_map(fmt),
+                    '{guid}.{cfg}|{platform}.Build.0 = {cfg}|{platform}'.format_map(fmt),
+                ])
+    return '\n\t\t'.join(lines)
+
+def _msb_project_cfgs(cfg):
+    configs = []
+    for build_config in cfg.build_configs:
+        for platform in cfg.platforms:
+            configs.append(r'''
+    <ProjectConfiguration Include="{cfg}|{platform}">
+      <Configuration>{cfg}</Configuration>
+      <Platform>{platform}</Platform>
+    </ProjectConfiguration>'''
+                .format(cfg=build_config.msbuild_name, platform=platform.msbuild_name)
+            )
+    return ''.join(configs)
+
+def _msb_cfg_properties(cfg):
+    props = []
+    for build_config in cfg.build_configs:
+        for platform in cfg.platforms:
+            props.append(r'''
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{cfg.msbuild_name}|{platform.msbuild_name}'">
+    <BazelCfgOpts>-c {cfg.bazel_name}</BazelCfgOpts>
+    <BazelCfgDirname>{platform.bazel_name}-{cfg.bazel_name}</BazelCfgDirname>
+  </PropertyGroup>'''
+                .format(cfg=build_config, platform=platform))
+    return '\n'.join(props)
 
 def _generate_uuid_from_data(data):
     # We don't comply with any UUID standard, but we use 3 to advertise that it is a deterministic
@@ -215,6 +262,8 @@ def main(argv):
     run_aspect(cfg)
 
     project_infos = []
+    project_configs = _msb_project_cfgs(cfg)
+    config_properties = _msb_cfg_properties(cfg)
     for target in cfg.targets:
         info = read_info(cfg, Label(target))
         with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
@@ -227,6 +276,8 @@ def main(argv):
                 target=info,
                 #label=info.label,
                 #package_path=os.path.normpath(info.label.package),
+                project_configs=project_configs,
+                config_properties=config_properties,
                 outputs=';'.join([os.path.basename(f) for f in info.output_files]),
                 file_groups=_msb_files(cfg, info),
                 rel_paths=cfg.rel_paths(project_dir))
@@ -239,7 +290,8 @@ def main(argv):
     with open(sln_filename, 'w') as out:
         content = template.format(
             projects=_sln_projects(project_infos),
-            project_cfgs=_sln_project_cfgs(project_infos),
+            cfgs=_sln_cfgs(cfg),
+            project_cfgs=_sln_project_cfgs(cfg, project_infos),
             guid=_generate_uuid_from_data(sln_filename))
         out.write(content)
 
