@@ -100,6 +100,7 @@ class Configuration:
         self.platforms = [
             PlatformConfig('x64', 'x64_windows')
         ]
+        self.user_config_names = args.config or []
 
         self.system_paths = os.environ['PATH'].split(os.pathsep)
         self._cygpath = self._find_exe('cygpath.exe')
@@ -235,14 +236,15 @@ def _msb_project_cfgs(cfg):
 
 def _msb_cfg_properties(cfg):
     props = []
+    user_config = ''.join(' --config=' + name for name in cfg.user_config_names)
     for build_config in cfg.build_configs:
         for platform in cfg.platforms:
             props.append(r'''
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{cfg.msbuild_name}|{platform.msbuild_name}'">
-    <BazelCfgOpts>-c {cfg.bazel_name}</BazelCfgOpts>
+    <BazelCfgOpts>-c {cfg.bazel_name}{user_config}</BazelCfgOpts>
     <BazelCfgDirname>{platform.bazel_name}-{cfg.bazel_name}</BazelCfgDirname>
   </PropertyGroup>'''
-                .format(cfg=build_config, platform=platform))
+                .format(cfg=build_config, platform=platform, user_config=user_config))
     return '\n'.join(props)
 
 def _generate_uuid_from_data(data):
@@ -274,6 +276,8 @@ def main(argv):
                         help="Output directory")
     parser.add_argument("--solution", "-n", type=str,
                         help="Solution name [default: current directory name]")
+    parser.add_argument("--config", action='append',
+                        help="Additional --config option to pass to bazel; may be used multiple times")
     args = parser.parse_args(argv[1:])
 
     cfg = Configuration(args)
