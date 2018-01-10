@@ -136,8 +136,8 @@ def run_aspect(cfg):
     subprocess.check_call([
         BAZEL,
         'build',
-        # TODO: inject aspect into project somehow
-        '--aspects=bazel-msbuild/msbuild.bzl%msbuild_aspect',
+        '--override_repository=bazel-msbuild={}'.format(os.path.join(SCRIPT_DIR, 'bazel')),
+        '--aspects=@bazel-msbuild//bazel-msbuild:msbuild.bzl%msbuild_aspect',
         '--output_groups=msbuild_outputs'] + cfg.targets)
 
 def read_info(cfg, target):
