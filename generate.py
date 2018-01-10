@@ -23,8 +23,20 @@ class Label:
             raise ValueError("Invalid label: " + name)
         self.repo = match[2] or None
         self._absolute = True if match[1] else False
+        if not self._absolute:
+            raise NotImplementedError("Absolute package path required")
         self.package = match[3]
         self.name = match[5] or self.package.split('/')[-1]
+
+    @property
+    def absolute(self):
+        return self.package + ':' + self.name
+
+    @property
+    def package_path(self):
+        assert self.package.startswith('//')
+        rel_package = self.package[2:]
+        return os.path.normpath(rel_package)
 
     @property
     def info_path(self):
@@ -40,18 +52,30 @@ class Struct:
 class ProjectInfo:
     def __init__(self, label, info_dict):
         self.label = label
-        self.ws_path = info_dict['workspace_root']
-        self.srcs = info_dict['files']['srcs']
-        self.hdrs = info_dict['files']['hdrs']
-        self.target = Struct()
-        self.target.label = info_dict['target']['label']
-        self.target.files = info_dict['target']['files']
+        #self.ws_path = info_dict['workspace_root']
+        self.rule = Struct()
+        self.rule.srcs = info_dict['files']['srcs']
+        self.rule.hdrs = info_dict['files']['hdrs']
+        self.output_files = info_dict['target']['files']
         self.guid = _generate_uuid_from_data(str(label))
+
+        if self.output_files:
+            output_file = self.output_files[0]
+            self.output_file = Struct()
+            self.output_file.path = os.path.dirname(output_file)
+            self.output_file.basename = os.path.basename(output_file)
+        else:
+            self.output_file = None
 
 class Configuration:
     def __init__(self, args):
         self.workspace_root = os.path.abspath('.')  # TODO
         self.output_path    = os.path.abspath(args.output)
+
+        self.paths = Struct()
+        self.paths.workspace_root = self.workspace_root
+        self.paths.bin = os.path.join(self.workspace_root, 'bazel-bin')
+        self.paths.out = os.path.join(self.workspace_root, 'bazel-out')
 
         self._setup_env()
 
@@ -80,6 +104,20 @@ class Configuration:
         # Don't override a more aggressive setting.
         if os.environ.get('MSYS2_ARG_CONV_EXCL') != '*':
             os.environ['MSYS2_ARG_CONV_EXCL'] = '//'
+
+    class RelativePathHelper:
+        """Provides a set of paths relative to some starting path."""
+        def __init__(self, orig_paths, relative_to):
+            self.orig_paths = orig_paths
+            self.relative_to = relative_to
+
+        def __getattr__(self, name):
+            orig = getattr(self.orig_paths, name)
+            relpath = os.path.relpath(orig, self.relative_to)
+            return os.path.normpath(relpath)
+
+    def rel_paths(self, relative_to):
+        return Configuration.RelativePathHelper(self.paths, relative_to)
 
 def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""
@@ -114,13 +152,13 @@ def _msb_files(cfg, info):
     output_dir = cfg.output_path_for_package(info.label.package)
     rel_ws_root = os.path.relpath(cfg.workspace_root, output_dir)
     return (
-        _msb_item_group(rel_ws_root, info, info.srcs, _msb_cc_src) +
-        _msb_item_group(rel_ws_root, info, info.hdrs, _msb_cc_inc))
+        _msb_item_group(rel_ws_root, info, info.rule.srcs, _msb_cc_src) +
+        _msb_item_group(rel_ws_root, info, info.rule.hdrs, _msb_cc_inc))
 
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
     return (
-        'Project("{type_guid}") = "{name}", "{package}/{name}.vcxproj", "{guid}"\nEndProject'
+        'Project("{type_guid}") = "{name}", "{package}\\{name}.vcxproj", "{guid}"\nEndProject'
         .format(guid=project.guid, type_guid=PROJECT_TYPE_GUID,
                 name=project.label.name, package=project.label.package))
 
@@ -181,14 +219,17 @@ def main(argv):
         info = read_info(cfg, Label(target))
         with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
             template = f.read()
-        proj_path = os.path.join(cfg.output_path, info.label.package)
-        _makedirs(proj_path)
-        with open(os.path.join(proj_path, info.label.name+'.vcxproj'), 'w') as out:
+        project_dir = os.path.join(cfg.output_path, info.label.package)
+        _makedirs(project_dir)
+        with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
             content = template.format(
-                info=info,
-                label=str(info.target.label),
-                outputs=';'.join([os.path.basename(f) for f in info.target.files]),
-                file_groups=_msb_files(cfg, info))
+                cfg=cfg,
+                target=info,
+                #label=info.label,
+                #package_path=os.path.normpath(info.label.package),
+                outputs=';'.join([os.path.basename(f) for f in info.output_files]),
+                file_groups=_msb_files(cfg, info),
+                rel_paths=cfg.rel_paths(project_dir))
             out.write(content)
         project_infos.append(info)
 
