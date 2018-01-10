@@ -22,12 +22,12 @@ class Label:
         match = re.match(Label.PATTERN, name)
         if not match:
             raise ValueError("Invalid label: " + name)
-        self.repo = match[2] or None
-        self._absolute = True if match[1] else False
+        self.repo = match.group(2) or None
+        self._absolute = True if match.group(1) else False
         if not self._absolute:
             raise NotImplementedError("Absolute package path required")
-        self.package = match[3]
-        self.name = match[5] or self.package.split('/')[-1]
+        self.package = match.group(3)
+        self.name = match.group(5) or self.package.split('/')[-1]
 
     @property
     def absolute(self):
@@ -197,8 +197,8 @@ def _sln_project_cfgs(cfg, projects):
                     'platform': platform.msbuild_name
                 }
                 lines.extend([
-                    '{guid}.{cfg}|{platform}.ActiveCfg = {cfg}|{platform}'.format_map(fmt),
-                    '{guid}.{cfg}|{platform}.Build.0 = {cfg}|{platform}'.format_map(fmt),
+                    '{guid}.{cfg}|{platform}.ActiveCfg = {cfg}|{platform}'.format(**fmt),
+                    '{guid}.{cfg}|{platform}.Build.0 = {cfg}|{platform}'.format(**fmt),
                 ])
     return '\n\t\t'.join(lines)
 
