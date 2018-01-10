@@ -54,6 +54,11 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
 
+  <!-- Hack to get most includes working -->
+  <PropertyGroup>
+    <IncludePath>{rel_paths.workspace_root};$(IncludePath)</IncludePath>
+  </PropertyGroup>
+
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
