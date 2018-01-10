@@ -1,7 +1,7 @@
 """Generates Visual Studio project files."""
 
 from __future__ import division, print_function, unicode_literals
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import argparse
 import errno
 import json
@@ -81,14 +81,7 @@ class Configuration:
         self.paths.out = os.path.join(self.workspace_root, 'bazel-out')
 
         self._setup_env()
-
-        if args.target:
-            self.targets = args.target
-        else:
-            # Query for all labels in the workspace.
-            # For large codebases, this is going to take awhile!
-            target_list = subprocess.check_output([BAZEL, 'query', '//...', '--output=label'])
-            self.targets = [t.decode('utf-8').strip() for t in target_list.split(b'\n') if t]
+        self._build_target_list(args)
 
         self.solution_name = args.solution or os.path.basename(os.getcwd())
 
@@ -106,6 +99,36 @@ class Configuration:
         self._cygpath = self._find_exe('cygpath.exe')
         self.bazel_path = self.canonical_path(
             self._find_exe('bazel.exe') or self._find_exe('bazel'))
+
+    def _build_target_list(self, args):
+        # If no query, use all targets in the workspace.
+        queries = args.query or ['//...']
+
+        kinds = set(['cc_library', 'cc_binary', 'cc_test'])
+
+        # Use OrderedDict to eliminate duplicates, but keep ordering
+        targets = OrderedDict()
+        for query in queries:
+            for target in self._get_targets_from_query(query, kinds):
+                targets[target] = True
+        self.targets = targets.keys()
+
+    _LABEL_KIND_PATTERN = re.compile(r'(\w+) rule (.+)$')
+    def _get_targets_from_query(self, query, kinds):
+        labels = []
+        target_list = subprocess.check_output([BAZEL, 'query', query, '--output=label_kind'])
+        for line in target_list.split(b'\n'):
+            line = line.decode('utf-8').strip()
+            if not line:
+                continue
+            match = re.match(Configuration._LABEL_KIND_PATTERN, line.strip())
+            if not match:
+                raise ValueError("Invalid bazel query output: " + line.strip())
+            kind = match.group(1)
+            label = match.group(2)
+            if kind in kinds:
+                labels.append(label)
+        return labels
 
     @property
     def bin_path(self):
@@ -270,8 +293,8 @@ def _makedirs(path):
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Generates Visual Studio project files from Bazel projects.")
-    parser.add_argument("target", nargs='*',
-                        help="Target to generate project for [default: all targets]")
+    parser.add_argument("query", nargs='*',
+                        help="Target query to generate project for [default: all targets]")
     parser.add_argument("--output", "-o", type=str, default='.',
                         help="Output directory")
     parser.add_argument("--solution", "-n", type=str,
