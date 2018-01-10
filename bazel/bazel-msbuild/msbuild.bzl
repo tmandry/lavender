@@ -3,7 +3,7 @@ def _get_project_info(target, ctx):
       workspace_root = ctx.label.workspace_root,
       package        = ctx.label.package,
       files = struct(**{name: _get_file_group(ctx.rule.attr, name) for name in ['srcs', 'hdrs']}),
-      deps  = [str(dep.label) for dep in ctx.rule.attr.deps],
+      deps  = [str(dep.label) for dep in getattr(ctx.rule.attr, 'deps', [])],
       target = struct(label=str(target.label), files=[f.path for f in target.files]),
   )
 
@@ -18,7 +18,7 @@ def _msbuild_aspect_impl(target, ctx):
   ctx.actions.write(info_file, content, is_executable=False)
 
   outputs = depset([info_file])
-  for dep in ctx.rule.attr.deps:
+  for dep in getattr(ctx.rule.attr, 'deps', []):
     outputs += dep[OutputGroupInfo].msbuild_outputs
   return [OutputGroupInfo(msbuild_outputs=outputs)]
 
