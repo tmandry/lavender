@@ -1,10 +1,24 @@
 def _get_project_info(target, ctx):
+  cc = getattr(target, 'cc', None)
+  if cc:
+    cc_info = struct(
+      include_dirs        = cc.include_directories,
+      system_include_dirs = cc.system_include_directories,
+      quote_include_dirs  = cc.quote_include_directories,
+      compile_flags       = cc.compile_flags,
+      defines             = cc.defines,
+    )
+  else:
+    cc_info = None
   return struct(
       workspace_root = ctx.label.workspace_root,
       package        = ctx.label.package,
+
       files = struct(**{name: _get_file_group(ctx.rule.attr, name) for name in ['srcs', 'hdrs']}),
       deps  = [str(dep.label) for dep in getattr(ctx.rule.attr, 'deps', [])],
       target = struct(label=str(target.label), files=[f.path for f in target.files]),
+
+      cc = cc_info,
   )
 
 def _get_file_group(rule_attrs, attr_name):

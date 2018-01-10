@@ -67,6 +67,24 @@ class ProjectInfo:
         else:
             self.output_file = None
 
+        self._cc = info_dict.get('cc', None)
+
+    @property
+    def compile_flags_joined(self):
+        return ' '.join(self._cc['compile_flags']) if self._cc else ''
+
+    @property
+    def defines_joined(self):
+        return ';'.join(self._cc['defines']) if self._cc else ''
+
+    def include_dirs_joined(self, rel_paths):
+        cc = self._cc
+        if not cc:
+            return ''
+        paths = cc['include_dirs'] + cc['system_include_dirs'] + cc['quote_include_dirs']
+        paths = (os.path.normpath(os.path.join(rel_paths.workspace_root, path)) for path in paths)
+        return ';'.join(paths)
+
 BuildConfig = namedtuple('BuildConfig', ['msbuild_name', 'bazel_name'])
 PlatformConfig = namedtuple('PlatformConfig', ['msbuild_name', 'bazel_name'])
 
@@ -336,7 +354,8 @@ def main(argv):
                 outputs=';'.join([os.path.basename(f) for f in info.output_files]),
                 file_groups=_msb_files(cfg, info),
                 rel_paths=rel_paths,
-                nmake_output=_msb_nmake_output(info, rel_paths))
+                nmake_output=_msb_nmake_output(info, rel_paths),
+                include_dirs_joined=info.include_dirs_joined(rel_paths))
             out.write(content)
         project_infos.append(info)
 

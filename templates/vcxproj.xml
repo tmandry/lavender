@@ -61,6 +61,13 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
 
+  <ClCompile>
+    <AdditionalOptions>{target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
+    <AdditionalIncludeDirectories>{include_dirs_joined};$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    <PreprocessorDefinitions>{target.defines_joined};%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <CompileAs>CompileAsCpp</CompileAs>
+  </ClCompile>
+
   {file_groups}
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
