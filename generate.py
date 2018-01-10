@@ -101,6 +101,11 @@ class Configuration:
             PlatformConfig('x64', 'x64_windows')
         ]
 
+        self.system_paths = os.environ['PATH'].split(os.pathsep)
+        self._cygpath = self._find_exe('cygpath.exe')
+        self.bazel_path = self.canonical_path(
+            self._find_exe('bazel.exe') or self._find_exe('bazel'))
+
     @property
     def bin_path(self):
         """Path to the bazel-bin directory of the current workspace."""
@@ -117,6 +122,13 @@ class Configuration:
         if os.environ.get('MSYS2_ARG_CONV_EXCL') != '*':
             os.environ['MSYS2_ARG_CONV_EXCL'] = '//'
 
+    def _find_exe(self, name):
+        for path in self.system_paths:
+            program = os.path.join(path, name)
+            if os.path.isfile(program) and os.access(program, os.X_OK):
+                return program
+        return None
+
     class RelativePathHelper:
         """Provides a set of paths relative to some starting path."""
         def __init__(self, orig_paths, relative_to):
@@ -130,6 +142,12 @@ class Configuration:
 
     def rel_paths(self, relative_to):
         return Configuration.RelativePathHelper(self.paths, relative_to)
+
+    def canonical_path(self, path):
+        """Returns the OS canonical path (i.e. Windows-style path if in Cygwin)."""
+        if self._cygpath:
+            return subprocess.check_output([self._cygpath, '-w', path]).strip()
+        return os.path.normpath(path)
 
 def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""

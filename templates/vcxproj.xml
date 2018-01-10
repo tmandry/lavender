@@ -67,13 +67,13 @@
 
   <Target Name="Build">
     <Message Text="NMakePreprocessorDefinitions = $(NMakePreprocessorDefinitions)" />
-    <Exec Command="bazel build $(BazelCfgOpts) {target.label.absolute}"
+    <Exec Command="{cfg.bazel_path} build $(BazelCfgOpts) {target.label.absolute}"
           Outputs="{outputs}"
           WorkingDirectory="{rel_paths.workspace_root}" />
   </Target>
 
   <Target Name="Clean">
-    <Exec Command="bazel clean $(BazelCfgOpts)"
+    <Exec Command="{cfg.bazel_path} clean $(BazelCfgOpts)"
           WorkingDirectory="{rel_paths.workspace_root}" />
   </Target>
 
