@@ -11,7 +11,7 @@
     <ProjectGuid>{target.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
     <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
-    <NMakeOutput>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\{target.output_file.basename}</NMakeOutput>
+    {nmake_output}
     <OutDir>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\</OutDir>
     <IntDir>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\_objs\</IntDir>
   </PropertyGroup>

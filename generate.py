@@ -104,7 +104,7 @@ class Configuration:
         # If no query, use all targets in the workspace.
         queries = args.query or ['//...']
 
-        kinds = set(['cc_library', 'cc_binary', 'cc_test'])
+        kinds = set(['cc_library', 'cc_inc_library', 'cc_binary', 'cc_test'])
 
         # Use OrderedDict to eliminate duplicates, but keep ordering
         targets = OrderedDict()
@@ -186,6 +186,15 @@ def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
     info_dict = json.load(open(os.path.join(cfg.bin_path, target.info_path)))
     return ProjectInfo(target, info_dict)
+
+def _msb_nmake_output(target, rel_paths):
+    if not target.output_file:
+        return ''
+    return ((
+            r'<NMakeOutput>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}' +
+            r'\{target.output_file.basename}</NMakeOutput>'
+        ).format(target=target, rel_paths=rel_paths)
+    )
 
 def _msb_cc_src(rel_ws_root, info, filename):
     return '<ClCompile Include="{}" />'.format(os.path.join(rel_ws_root, filename))
@@ -316,6 +325,7 @@ def main(argv):
         project_dir = os.path.join(cfg.output_path, info.label.package)
         _makedirs(project_dir)
         with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
+            rel_paths = cfg.rel_paths(project_dir)
             content = template.format(
                 cfg=cfg,
                 target=info,
@@ -325,7 +335,8 @@ def main(argv):
                 config_properties=config_properties,
                 outputs=';'.join([os.path.basename(f) for f in info.output_files]),
                 file_groups=_msb_files(cfg, info),
-                rel_paths=cfg.rel_paths(project_dir))
+                rel_paths=rel_paths,
+                nmake_output=_msb_nmake_output(info, rel_paths))
             out.write(content)
         project_infos.append(info)
 
