@@ -222,14 +222,6 @@ def _msb_nmake_output(target, rel_paths):
         ).format(target=target, rel_paths=rel_paths)
     )
 
-def _msb_config_type(target):
-    return {
-        'cc_library':     'StaticLibrary',
-        'cc_inc_library': 'StaticLibrary',
-        'cc_binary':      'Application',
-        'cc_test':        'Application',
-    }.get(target.rule.kind, 'Makefile')
-
 def _msb_target_name_ext(target):
     if not target.output_file:
         return ''
@@ -372,7 +364,6 @@ def main(argv):
             content = template.format(
                 cfg=cfg,
                 target=info,
-                config_type=_msb_config_type(info),
                 target_name_ext=_msb_target_name_ext(info),
                 #label=info.label,
                 #package_path=os.path.normpath(info.label.package),
