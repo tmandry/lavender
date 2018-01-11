@@ -77,13 +77,18 @@ class ProjectInfo:
     def defines_joined(self):
         return ';'.join(self._cc['defines']) if self._cc else ''
 
-    def include_dirs_joined(self, rel_paths):
+    def include_dirs_joined(self, cfg, rel_paths):
         cc = self._cc
         if not cc:
             return ''
         paths = cc['include_dirs'] + cc['system_include_dirs'] + cc['quote_include_dirs']
-        paths = (os.path.normpath(os.path.join(rel_paths.workspace_root, path)) for path in paths)
+        paths = (self._rewrite_include_path(cfg, rel_paths, path) for path in paths)
         return ';'.join(paths)
+
+    def _rewrite_include_path(self, cfg, rel_paths, path):
+        path = path.replace('/', '\\').split('\\')  # MSYS2 confuses Python
+        path = [node if node != cfg.default_cfg_dirname else '%(BazelCfgDirname)' for node in path]
+        return os.path.normpath(os.path.join(rel_paths.workspace_root, *path))
 
 BuildConfig = namedtuple('BuildConfig', ['msbuild_name', 'bazel_name'])
 PlatformConfig = namedtuple('PlatformConfig', ['msbuild_name', 'bazel_name'])
@@ -117,6 +122,8 @@ class Configuration:
         self._cygpath = self._find_exe('cygpath.exe')
         self.bazel_path = self.canonical_path(
             self._find_exe('bazel.exe') or self._find_exe('bazel'))
+
+        self.default_cfg_dirname = 'x64_windows-fastbuild'
 
     def _build_target_list(self, args):
         # If no query, use all targets in the workspace.
@@ -355,7 +362,7 @@ def main(argv):
                 file_groups=_msb_files(cfg, info),
                 rel_paths=rel_paths,
                 nmake_output=_msb_nmake_output(info, rel_paths),
-                include_dirs_joined=info.include_dirs_joined(rel_paths))
+                include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
             out.write(content)
         project_infos.append(info)
 
