@@ -5,7 +5,7 @@ def _get_project_info(target, ctx):
       include_dirs        = cc.include_directories,
       system_include_dirs = cc.system_include_directories,
       quote_include_dirs  = cc.quote_include_directories,
-      compile_flags       = cc.compile_flags,
+      compile_flags       = cc.compile_flags + ctx.fragments.cpp.compiler_options([]) + ctx.fragments.cpp.cxx_options([]),
       defines             = cc.defines,
     )
   else:
@@ -39,5 +39,6 @@ def _msbuild_aspect_impl(target, ctx):
 
 msbuild_aspect = aspect(
     attr_aspects = ["deps"],
+    fragments    = ["cpp"],
     implementation = _msbuild_aspect_impl,
 )
