@@ -21,6 +21,7 @@
 
   <PropertyGroup Label="Configuration">
     <ConfigurationType>{config_type}</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Fastbuild'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
