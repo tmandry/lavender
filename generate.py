@@ -206,7 +206,7 @@ def run_aspect(cfg):
         'build',
         '--override_repository=bazel-msbuild={}'.format(os.path.join(SCRIPT_DIR, 'bazel')),
         '--aspects=@bazel-msbuild//bazel-msbuild:msbuild.bzl%msbuild_aspect',
-        '--output_groups=msbuild_outputs'] + cfg.targets)
+        '--output_groups=msbuild_outputs'] + list(cfg.targets))
 
 def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
@@ -334,6 +334,49 @@ def _makedirs(path):
         else:
             raise
 
+def generate_projects(cfg):
+    with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
+        template = f.read()
+    project_configs = _msb_project_cfgs(cfg)
+    config_properties = _msb_cfg_properties(cfg)
+
+    project_infos = []
+    for target in cfg.targets:
+        info = read_info(cfg, Label(target))
+        project_infos.append(info)
+
+        project_dir = os.path.join(cfg.output_path, info.label.package)
+        rel_paths = cfg.rel_paths(project_dir)
+        content = template.format(
+            cfg=cfg,
+            target=info,
+            target_name_ext=_msb_target_name_ext(info),
+            project_configs=project_configs,
+            config_properties=config_properties,
+            outputs=';'.join([os.path.basename(f) for f in info.output_files]),
+            file_groups=_msb_files(cfg, info),
+            rel_paths=rel_paths,
+            nmake_output=_msb_nmake_output(info, rel_paths),
+            include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
+
+        _makedirs(project_dir)
+        with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
+            out.write(content)
+
+    return project_infos
+
+def generate_solution(cfg, project_infos):
+    with open(os.path.join(SCRIPT_DIR, 'templates', 'solution.sln')) as f:
+        template = f.read()
+    sln_filename = os.path.join(cfg.output_path, cfg.solution_name+'.sln')
+    content = template.format(
+        projects=_sln_projects(project_infos),
+        cfgs=_sln_cfgs(cfg),
+        project_cfgs=_sln_project_cfgs(cfg, project_infos),
+        guid=_generate_uuid_from_data(sln_filename))
+    with open(sln_filename, 'w') as out:
+        out.write(content)
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Generates Visual Studio project files from Bazel projects.")
@@ -348,45 +391,10 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     cfg = Configuration(args)
+
     run_aspect(cfg)
-
-    project_infos = []
-    project_configs = _msb_project_cfgs(cfg)
-    config_properties = _msb_cfg_properties(cfg)
-    for target in cfg.targets:
-        info = read_info(cfg, Label(target))
-        with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
-            template = f.read()
-        project_dir = os.path.join(cfg.output_path, info.label.package)
-        _makedirs(project_dir)
-        with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
-            rel_paths = cfg.rel_paths(project_dir)
-            content = template.format(
-                cfg=cfg,
-                target=info,
-                target_name_ext=_msb_target_name_ext(info),
-                #label=info.label,
-                #package_path=os.path.normpath(info.label.package),
-                project_configs=project_configs,
-                config_properties=config_properties,
-                outputs=';'.join([os.path.basename(f) for f in info.output_files]),
-                file_groups=_msb_files(cfg, info),
-                rel_paths=rel_paths,
-                nmake_output=_msb_nmake_output(info, rel_paths),
-                include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
-            out.write(content)
-        project_infos.append(info)
-
-    with open(os.path.join(SCRIPT_DIR, 'templates', 'solution.sln')) as f:
-        template = f.read()
-    sln_filename = os.path.join(cfg.output_path, cfg.solution_name+'.sln')
-    with open(sln_filename, 'w') as out:
-        content = template.format(
-            projects=_sln_projects(project_infos),
-            cfgs=_sln_cfgs(cfg),
-            project_cfgs=_sln_project_cfgs(cfg, project_infos),
-            guid=_generate_uuid_from_data(sln_filename))
-        out.write(content)
+    project_infos = generate_projects(cfg)
+    generate_solution(cfg, project_infos)
 
 if __name__ == '__main__':
     main(sys.argv)
