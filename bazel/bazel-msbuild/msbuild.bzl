@@ -17,6 +17,7 @@ def _get_project_info(target, ctx):
       files = struct(**{name: _get_file_group(ctx.rule.attr, name) for name in ['srcs', 'hdrs']}),
       deps  = [str(dep.label) for dep in getattr(ctx.rule.attr, 'deps', [])],
       target = struct(label=str(target.label), files=[f.path for f in target.files]),
+      kind = ctx.rule.kind,
 
       cc = cc_info,
   )
