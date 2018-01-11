@@ -20,7 +20,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
 
   <PropertyGroup Label="Configuration">
-    <ConfigurationType>{config_type}</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Fastbuild'" Label="Configuration">
@@ -59,14 +59,11 @@
     <NMakePreprocessorDefinitions>NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
 
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalOptions>{target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>{include_dirs_joined};$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>{target.defines_joined};%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <CompileAs>CompileAsCpp</CompileAs>
-    </ClCompile>
-  </ItemDefinitionGroup>
+  <PropertyGroup>
+    <NMakePreprocessorDefinitions>{target.defines_joined};$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>{include_dirs_joined};$(AdditionalIncludeDirectories)</NMakeIncludeSearchPath>
+    <AdditionalOptions>{target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
+  </PropertyGroup>
 
   {file_groups}
 
