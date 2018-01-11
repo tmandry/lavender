@@ -6,6 +6,6 @@ Generate Visual Studio projects with bazel.
 
 ```
 $ cd myproject
-$ python /path/to/bazel-msbuild/generate.py -o msbuild //mypackage/...
+$ python /path/to/bazel-msbuild/generate.py //mypackage/...
 $ start msbuild/myproject.sln
 ```

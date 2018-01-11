@@ -382,7 +382,7 @@ def main(argv):
         description="Generates Visual Studio project files from Bazel projects.")
     parser.add_argument("query", nargs='*',
                         help="Target query to generate project for [default: all targets]")
-    parser.add_argument("--output", "-o", type=str, default='.',
+    parser.add_argument("--output", "-o", type=str, default='msbuild',
                         help="Output directory")
     parser.add_argument("--solution", "-n", type=str,
                         help="Solution name [default: current directory name]")
