@@ -231,27 +231,72 @@ def _msb_target_name_ext(target):
         name, ext = target.output_file.basename, ''
     return r'<TargetName>{}</TargetName><TargetExt>{}</TargetExt>'.format(name, ext)
 
-def _msb_cc_src(rel_ws_root, info, filename):
-    return '<ClCompile Include="{}" />'.format(os.path.join(rel_ws_root, filename))
+def _add_filter_to_set(filters, filter_name):
+    """Adds a filter, and all its parent filters to the set `filters`."""
+    DELIM = '\\'
+    if filter_name in filters:
+        return
+    components = filter_name.split(DELIM)
+    path = components[0]
+    filters.add(path)
+    for component in components[1:]:
+        path += DELIM + component
+        filters.add(path)
 
-def _msb_cc_inc(rel_ws_root, info, filename):
-    return '<ClInclude Include="{}" />'.format(os.path.join(rel_ws_root, filename))
+def _msb_file_filter(info, filename, filters):
+    # In most cases, files in a package are in the same directory as that package.
+    # If they are in another directory, we add a filter to the file to help
+    # keep things organized the same way they are in the codebase.
 
-def _msb_item_group(rel_ws_root, info, file_targets, func):
+    # During generation of main project file, we don't include filters info.
+    if filters is None:
+        return ''
+
+    # During generation of filters file, we return None to indicate not to
+    # generate any contet for this file.
+    # TODO: This is really hacky!
+    dirname = os.path.dirname(filename)
+    if not dirname:
+        return None
+    filter_name = os.path.relpath(dirname, info.label.package_path).replace('/', '\\')
+    if not filter_name or filter_name == '.':
+        return None
+    _add_filter_to_set(filters, filter_name)
+    return '<Filter>{}</Filter>'.format(filter_name)
+
+def _msb_cc_src(rel_ws_root, info, filters, filename):
+    filter = _msb_file_filter(info, filename, filters)
+    if filter is None:
+        return None
+    return '<ClCompile Include="{name}">{filter}</ClCompile>'.format(
+        name=os.path.join(rel_ws_root, filename),
+        filter=filter)
+
+def _msb_cc_inc(rel_ws_root, info, filters, filename):
+    filter = _msb_file_filter(info, filename, filters)
+    if filter is None:
+        return None
+    return '<ClInclude Include="{name}">{filter}</ClInclude>'.format(
+        name=os.path.join(rel_ws_root, filename),
+        filter=filter)
+
+def _msb_item_group(rel_ws_root, info, filters, file_targets, func):
     if not file_targets:
         return ''
+    xml_items = [func(rel_ws_root, info, filters, f) for f in file_targets]
     return (
         '\n  <ItemGroup>' +
-        '\n    '.join([''] + [func(rel_ws_root, info, f) for f in file_targets]) +
+        '\n    '.join([''] + [item for item in xml_items if item is not None]) +
         '\n  </ItemGroup>'
     )
 
-def _msb_files(cfg, info):
+def _msb_files(cfg, info, filters=None):
+    """Set filters to a set-like when writing filters. All filters used will be added to the set."""
     output_dir = cfg.output_path_for_package(info.label.package)
     rel_ws_root = os.path.relpath(cfg.workspace_root, output_dir)
     return (
-        _msb_item_group(rel_ws_root, info, info.rule.srcs, _msb_cc_src) +
-        _msb_item_group(rel_ws_root, info, info.rule.hdrs, _msb_cc_inc))
+        _msb_item_group(rel_ws_root, info, filters, info.rule.srcs, _msb_cc_src) +
+        _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc))
 
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
@@ -314,6 +359,13 @@ def _msb_cfg_properties(cfg):
                 .format(cfg=build_config, platform=platform, user_config=user_config))
     return '\n'.join(props)
 
+def _msb_filter_items(filters):
+    tags = [r'''
+    <Filter Include="{name}">
+      <UniqueIdentifier>{uuid}</UniqueIdentifier>
+    </Filter>'''.format(name=name, uuid=_generate_uuid_from_data(name)) for name in filters]
+    return '\n'.join(tags)
+
 def _generate_uuid_from_data(data):
     # We don't comply with any UUID standard, but we use 3 to advertise that it is a deterministic
     # hash of a name. I don't think Visual Studio will complain about the method used to create our
@@ -334,9 +386,19 @@ def _makedirs(path):
         else:
             raise
 
+def _generate_project_filters(filters_template, cfg, info):
+    filters = set()
+    file_groups = _msb_files(cfg, info, filters)
+
+    return filters_template.format(
+        file_groups=file_groups,
+        filter_items=_msb_filter_items(filters))
+
 def generate_projects(cfg):
     with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
         template = f.read()
+    with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.filters.xml')) as f:
+        filters_template = f.read()
     project_configs = _msb_project_cfgs(cfg)
     config_properties = _msb_cfg_properties(cfg)
 
@@ -358,10 +420,13 @@ def generate_projects(cfg):
             rel_paths=rel_paths,
             nmake_output=_msb_nmake_output(info, rel_paths),
             include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
+        filters_content = _generate_project_filters(filters_template, cfg, info)
 
         _makedirs(project_dir)
         with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
             out.write(content)
+        with open(os.path.join(project_dir, info.label.name+'.vcxproj.filters'), 'w') as out:
+            out.write(filters_content)
 
     return project_infos
 
