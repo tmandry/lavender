@@ -7,6 +7,7 @@
 {config_properties}
 
   <PropertyGroup Label="Globals">
+    <ProjectName>{target.label.absolute}</ProjectName>
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{target.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>

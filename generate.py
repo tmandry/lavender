@@ -31,7 +31,7 @@ class Label:
 
     @property
     def absolute(self):
-        return self.package + ':' + self.name
+        return (self.repo or '') + '//' + self.package + ':' + self.name
 
     @property
     def package_path(self):
