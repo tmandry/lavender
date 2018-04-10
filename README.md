@@ -29,6 +29,12 @@ The environment you start Visual Studio from affects how Bazel is configured. Ma
 If your environment settings are different between Visual Studio and your terminal, you might end up talking to two different Bazel servers. If you're experiencing problems when launching Visual Studio from explorer, try launching from your terminal, or vice versa.
 I hope to improve documentation around this eventually; please report any difficulty you have by opening an issue.
 
+### Debugging
+
+Full C++ debugging is supported.
+
+However, when debugging, Visual Studio will open up source file names built into the binary that are symlinks to the original source. This can be confusing, because you will have two copies of the same file open. Making a change to one may cause Visual Studio to prompt you about changes made to the other tab. It is best to check "Always reload files when there are no unsaved changes", so that this becomes less annoying.
+
 ## Usage
 ```
 usage: generate.py [-h] [--output OUTPUT] [--solution SOLUTION]
