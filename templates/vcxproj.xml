@@ -13,7 +13,6 @@
     <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
     {nmake_output}
     <OutDir>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\</OutDir>
-    <IntDir>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\_objs\</IntDir>
     {target_name_ext}
   </PropertyGroup>
 
