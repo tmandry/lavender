@@ -81,6 +81,9 @@
           WorkingDirectory="{rel_paths.workspace_root}" />
   </Target>
 
+  <!-- Override PrepareForBuild so it doesn't try to create OutDir and interfere with bazel. -->
+  <Target Name="PrepareForBuild" DependsOnTargets="$(PrepareForBuildDependsOn)"></Target>
+
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
