@@ -1,8 +1,12 @@
-# bazel-msbuild
+# Lavender
 
 Generate Visual Studio projects with bazel. The projects use bazel to do the actual building.
 
-Currently this only works for C++.
+Basil is an herb, and so is lavender. It's also the [color of the Visual Studio logo](https://en.wikipedia.org/wiki/Microsoft_Visual_Studio).
+
+Currently this only works for C++. Support for building targets in other languages is planned.
+
+Formerly bazel-msbuild.
 
 ## Prerequistes
 - bazel
@@ -12,10 +16,10 @@ Currently this only works for C++.
 
 Run this in your normal development environment (MSYS bash, cmd.exe, or PowerShell):
 ```
-$ git clone https://github.com/tmandry/bazel-msbuild.git
+$ git clone https://github.com/tmandry/lavender.git
 
 # Then, in your bazel project...
-$ python /path/to/bazel-msbuild/generate.py //mypackage/...
+$ python /path/to/lavender/generate.py //mypackage/...
 
 $ start msbuild/myproject.sln
 ```
