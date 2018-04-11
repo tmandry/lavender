@@ -28,10 +28,7 @@ Where `//mypackage/...` is an optional Bazel query describing which packages you
 You can specify more than one query. If you specify no query, projects will be generated for ALL packages. Be careful on large repos!
 
 ### Environment
-The environment you start Visual Studio from affects how Bazel is configured. Make sure this environment is configured according to the [Using Bazel on Windows](https://docs.bazel.build/versions/master/windows.html) docs.
-
-If your environment settings are different between Visual Studio and your terminal, you might end up talking to two different Bazel servers. If you're experiencing problems when launching Visual Studio from explorer, try launching from your terminal, or vice versa.
-I hope to improve documentation around this eventually; please report any difficulty you have by opening an issue.
+The environment you start Visual Studio from affects how Bazel is configured. Make sure this environment is configured according to the [Using Bazel on Windows](https://docs.bazel.build/versions/master/windows.html) docs; in particular, it's important to set `BAZEL_SH` system-wide. If your environment settings are different between Visual Studio and your terminal, you might end up talking to two different Bazel servers.
 
 ### Debugging
 
