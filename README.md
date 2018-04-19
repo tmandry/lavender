@@ -58,3 +58,7 @@ optional arguments:
   --config CONFIG       Additional --config option to pass to bazel; may be
                         used multiple times
 ```
+
+## Related projects
+- [vscode-bazel-tools](https://github.com/dprogm/vscode-bazel-tools): Integration with Visual Studio Code
+- [Blakefiler](https://gist.github.com/jart/082b1078a065b79949508bbe1b7d8ef0): Generates a Makefile to build bazel targets for distribution
