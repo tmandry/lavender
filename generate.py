@@ -5,6 +5,7 @@ from collections import namedtuple, OrderedDict
 import argparse
 import errno
 import json
+import locale
 import os
 import re
 import subprocess
@@ -196,7 +197,11 @@ class Configuration:
     def canonical_path(self, path):
         """Returns the OS canonical path (i.e. Windows-style path if in Cygwin)."""
         if self._cygpath:
-            return subprocess.check_output([self._cygpath, '-w', path]).strip()
+            out = subprocess.check_output([self._cygpath, '-w', path]).strip()
+            if isinstance(out, bytes):
+                out = out.decode(locale.getpreferredencoding()).strip()
+            return out
+
         return os.path.normpath(path)
 
 def run_aspect(cfg):
