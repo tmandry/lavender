@@ -122,10 +122,15 @@ class Configuration:
 
         self.system_paths = os.environ['PATH'].split(os.pathsep)
         self._cygpath = self._find_exe('cygpath.exe')
-        self.bazel_path = self.canonical_path(
-            self._find_exe('bazel.exe') or self._find_exe('bazel'))
+
+        bazel_path = self._find_exe('bazel.exe') or self._find_exe('bazel')
+        if not bazel_path:
+            raise StandardError("Could not find bazel or bazel.exe in path")
+        self.bazel_path = self.canonical_path(bazel_path)
 
         self.default_cfg_dirname = 'x64_windows-fastbuild'
+
+        self.cc_workspace_path = self._get_bazel_info()['execution_root']
 
     def _build_target_list(self, args):
         # If no query, use all targets in the workspace.
@@ -156,6 +161,11 @@ class Configuration:
             if kind in kinds:
                 labels.append(label)
         return labels
+
+    def _get_bazel_info(self):
+        info = subprocess.check_output([BAZEL, 'info'])
+        keyvals = (line.strip().split(': ', 1) for line in info.split(b'\n'))
+        return {kv[0]:kv[1] for kv in keyvals if len(kv) == 2}
 
     @property
     def bin_path(self):
@@ -298,7 +308,7 @@ def _msb_item_group(rel_ws_root, info, filters, file_targets, func):
 def _msb_files(cfg, info, filters=None):
     """Set filters to a set-like when writing filters. All filters used will be added to the set."""
     output_dir = cfg.output_path_for_package(info.label.package)
-    rel_ws_root = os.path.relpath(cfg.workspace_root, output_dir)
+    rel_ws_root = cfg.cc_workspace_path  #os.path.relpath(cfg.workspace_root, output_dir)
     return (
         _msb_item_group(rel_ws_root, info, filters, info.rule.srcs, _msb_cc_src) +
         _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc))
