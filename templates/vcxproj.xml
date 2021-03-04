@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <ItemGroup Label="ProjectConfigurations">{project_configs}
   </ItemGroup>
@@ -7,8 +7,8 @@
 {config_properties}
 
   <PropertyGroup Label="Globals">
-    <ProjectName>{target.label.absolute}</ProjectName>
-    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectName>{target.label.name}</ProjectName>
+    <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{target.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
     <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
@@ -21,7 +21,7 @@
 
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Fastbuild'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
