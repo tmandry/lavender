@@ -427,8 +427,9 @@ def generate_projects(cfg):
             include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
         filters_content = _generate_project_filters(filters_template, cfg, info)
 
-        _makedirs(project_dir)
-        with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
+        path = os.path.join(project_dir, info.label.name+'.vcxproj')
+        _makedirs(os.path.dirname(path))
+        with open(path, 'w') as out:
             out.write(content)
         with open(os.path.join(project_dir, info.label.name+'.vcxproj.filters'), 'w') as out:
             out.write(filters_content)
