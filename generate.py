@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BAZEL = 'bazel'
+BAZEL = os.environ.get('BAZEL', 'bazel')
 
 PROJECT_TYPE_GUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
 
@@ -123,7 +123,7 @@ class Configuration:
         self.system_paths = os.environ['PATH'].split(os.pathsep)
         self._cygpath = self._find_exe('cygpath.exe')
         self.bazel_path = self.canonical_path(
-            self._find_exe('bazel.exe') or self._find_exe('bazel'))
+            self._find_exe('bazel.exe') or self._find_exe(BAZEL))
 
         self.default_cfg_dirname = 'x64_windows-fastbuild'
 
