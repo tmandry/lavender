@@ -206,12 +206,13 @@ class Configuration:
 
 def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""
+    configs = ['--config=' + name for name in cfg.user_config_names]
     subprocess.check_call([
         BAZEL,
         'build',
         '--override_repository=bazel-msbuild={}'.format(os.path.join(SCRIPT_DIR, 'bazel')),
         '--aspects=@bazel-msbuild//bazel-msbuild:msbuild.bzl%msbuild_aspect',
-        '--output_groups=msbuild_outputs'] + list(cfg.targets))
+        '--output_groups=msbuild_outputs'] + configs + list(cfg.targets))
 
 def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
